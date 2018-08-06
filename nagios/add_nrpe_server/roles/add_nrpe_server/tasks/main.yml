@@ -1,0 +1,53 @@
+- name: Install need soft
+  apt: pkg={{ item }} state=latest
+  with_items:
+    - nagios-nrpe-server
+    - nagios-plugins
+    - autoconf 
+    - gcc 
+    - libc6 
+    - make 
+    - wget 
+    - unzip 
+    - libgd-dev
+
+- name: Copy config nrpe.cfg
+  template: src=nrpe.cfg  dest=/etc/nagios/nrpe.cfg
+  notify:
+    - restart nagios-nrpe-server
+
+- name: Install Sys::Statistics::Linux
+  command: /usr/bin/perl -MCPAN -e 'install Sys::Statistics::Linux'
+
+- name: Copy plugin check_linux_stats.pl
+  template: src=check_linux_stats.pl  dest=/usr/lib/nagios/plugins/check_linux_stats.pl
+
+- name: Set permission
+  file: 
+    path: /usr/lib/nagios/plugins/check_linux_stats.pl
+    mode: 0777
+
+- name: Open 5666 port for NRPE
+  lineinfile: dest=/etc/network/if-pre-up.d/iptables line='/sbin/iptables -A INPUT -i vmbr0 -p tcp --dport 5666 -j ACCEPT'
+
+- name: Open LIVE 5666 port for NRPE
+  command: /sbin/iptables -A INPUT -i vmbr0 -p tcp --dport 5666 -j ACCEPT
+
+- name: Allow ping from nagios
+  lineinfile: dest=/etc/network/if-pre-up.d/iptables line='/sbin/iptables -A INPUT -p icmp -s 54.38.192.56 -j ACCEPT'
+
+- name: Open LIVE ping from nagios
+  command: /sbin/iptables -A INPUT -p icmp -s 54.38.192.56 -j ACCEPT
+
+- name: Allow ssh from nagios
+  lineinfile: dest=/etc/network/if-pre-up.d/iptables line='/sbin/iptables -A INPUT -i vmbr0 -p tcp --dport 22 -s 54.38.192.56 -j ACCEPT'
+
+- name: Allow LIVE ssh from nagios
+  command: /sbin/iptables -A INPUT -i vmbr0 -p tcp --dport 22 -s 54.38.192.56 -j ACCEPT
+
+- name: Starting nagis-nrpe-server
+  service: name={{ item }} state=started
+  with_items:
+    - nagios-nrpe-server
+
+
